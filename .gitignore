@@ -1,0 +1,3 @@
+venv/
+flask_restful_graph.egg-info/
+*.pyc

@@ -1,12 +1,12 @@
 from setuptools import setup
 
 setup(
-    name='flask-restful-graph',
-    packages=['flask-restful-graph'],
+    name='flask_restful_graph',
+    packages=['flask_restful_graph'],
     include_package_data=True,
     install_requires=[
         'flask-marshmallow',
         'flask-restful',
-        'neomodel'
+        'py2neo'
     ]
 )

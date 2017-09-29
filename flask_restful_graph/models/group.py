@@ -22,12 +22,7 @@ class GroupResource(Resource):
     def get(self, id):
         group = Group.select(Group.graph, id).first()
         resource = resource_schema.serialize(group)
-        print resource
-        return {
-            'id': group.__primaryvalue__,
-            'title': group.title,
-            'members': {m.email: m.__primaryvalue__ for m in group.members}
-        }
+        return resource
 
 
 class GroupsResource(Resource):

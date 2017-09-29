@@ -7,6 +7,7 @@ class ResourceSchema(Schema):
     attributes = fields.Dict()
     relationships = fields.Dict()
     links = fields.Dict()
+    included = fields.Dict()
     meta = fields.Dict()
 
     def serialize(self, node, next_traversal=True):

@@ -1,15 +1,16 @@
 from flask import request
 from flask_restful import Resource
-from py2neo.ogm import Property
+from py2neo.ogm import Property, RelatedTo
 
 from .base_model import BaseModel
 
 
 class User(BaseModel):
-    id = Property()
     email = Property()
     first_name = Property()
     last_name = Property()
+
+    groups = RelatedTo('flask_restful_graph.models.Group', 'MEMBER_OF')
 
     def __init__(self, email, **kwargs):
         self.email = email
@@ -20,13 +21,13 @@ class User(BaseModel):
 class UserResource(Resource):
     def get(self, id):
         user = User.select(User.graph, id).first()
-        return {id: user.email}
+        return {'id': user.__primaryvalue__, 'email': user.email}
 
 
 class UsersResource(Resource):
     def get(self):
         users = User.select(User.graph)
-        return {user._id: user.email for user in users}
+        return {user.email: user.__primaryvalue__ for user in users}
 
     def post(self):
         json = request.get_json()

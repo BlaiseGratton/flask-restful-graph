@@ -2,20 +2,22 @@ from flask import request
 from flask_restful import Resource
 from py2neo.ogm import Property, RelatedFrom
 
-from .base_model import BaseModel
-from flask_restful_graph.schemas import ResourceSchema
+from marshmallow_jsonapi import validate
+from marshmallow_jsonapi import fields
+from marshmallow_jsonapi.flask import Relationship, Schema
 
 
-resource_schema = ResourceSchema()
-
-
-class Group(BaseModel):
+class Group(object):
     title = Property()
 
     members = RelatedFrom('flask_restful_graph.models.User', 'MEMBER_OF')
 
     def __init__(self, title, **kwargs):
         self.title = title
+
+
+class GroupSchema(Schema):
+    title = fields.Str()
 
 
 class GroupResource(Resource):

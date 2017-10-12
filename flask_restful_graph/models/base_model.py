@@ -5,13 +5,13 @@ from py2neo import Graph
 from py2neo.ogm import GraphObject, RelatedObjects
 import stringcase
 
-from flask_restful_graph.schemas import ResourceSchema
+from flask_restful_graph.schemas import ResourceDataSchema
 
 
-schema = ResourceSchema()
+data_schema = ResourceDataSchema()
 
 
-class Resource(object):
+class ResourceData(object):
     def __init__(self, node, next_traversal):
         self.type = node.__primarylabel__.lower()
         self.id = str(node.__primaryvalue__)
@@ -27,7 +27,7 @@ class BaseModel(GraphObject):
     graph = Graph(password=os.environ.get('TEST_GRAPH_PASSWORD'))
 
     def to_resource(self, next_traversal):
-        return Resource(self, next_traversal)
+        return ResourceData(self, next_traversal)
 
     @property
     def attributes(self):
@@ -45,7 +45,7 @@ class BaseModel(GraphObject):
     def links(self):
         links = {}
 
-        links['self'] = '/api' + url_for(
+        links['self'] = url_for(
             self.__class__.__name__.lower() + 'resource',
             id=self.__primaryvalue__
         )
@@ -61,7 +61,7 @@ class BaseModel(GraphObject):
         for related_set in related_groups:
             direction = 'inbound' if related_set[0] is -1 else 'outbound'
             label = related_set[1]
-            related_nodes = [schema.serialize(n, next_traversal=False)
+            related_nodes = [data_schema.serialize(n, next_traversal=False)
                              for n in related_groups[related_set]]
             relationships[label] = {
                 'direction': direction,

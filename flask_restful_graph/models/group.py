@@ -3,10 +3,7 @@ from flask_restful import Resource
 from py2neo.ogm import Property, RelatedFrom
 
 from .base_model import BaseModel
-from flask_restful_graph.schemas import ResourceSchema
-
-
-resource_schema = ResourceSchema()
+from flask_restful_graph.schemas import ResourceDataSchema
 
 
 class Group(BaseModel):
@@ -18,11 +15,7 @@ class Group(BaseModel):
         self.title = title
 
 
-class GroupResource(Resource):
-    def get(self, id):
-        group = Group.select(Group.graph, id).first()
-        resource = resource_schema.serialize(group)
-        return resource
+data_schema = ResourceDataSchema()
 
 
 class GroupsResource(Resource):

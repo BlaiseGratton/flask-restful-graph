@@ -1,7 +1,4 @@
-import os
-
 from flask import url_for
-from py2neo import Graph
 from py2neo.ogm import GraphObject, RelatedObjects
 import stringcase
 
@@ -23,8 +20,6 @@ class ResourceData(object):
 
 
 class BaseModel(GraphObject):
-
-    graph = Graph(password=os.environ.get('TEST_GRAPH_PASSWORD'))
 
     def to_resource(self, next_traversal):
         return ResourceData(self, next_traversal)

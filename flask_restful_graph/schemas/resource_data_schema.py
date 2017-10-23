@@ -1,4 +1,6 @@
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields, post_load
+
+from flask_restful_graph.models.resource_data import ResourceData
 
 
 class ResourceDataSchema(Schema):
@@ -15,3 +17,7 @@ class ResourceDataSchema(Schema):
             return data
         else:
             raise ValueError(errors)
+
+    @post_load
+    def make_resource(self, data):
+        return ResourceData(data)

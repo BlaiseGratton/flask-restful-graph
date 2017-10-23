@@ -1,1 +1,1 @@
-from .resource_schema import ResourceDataSchema
+from .resource_data_schema import ResourceDataSchema

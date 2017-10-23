@@ -4,19 +4,9 @@ import stringcase
 
 from flask_restful_graph.schemas import ResourceDataSchema
 
+from .resource_data import ResourceData
 
 data_schema = ResourceDataSchema()
-
-
-class ResourceData(object):
-    def __init__(self, node, next_traversal):
-        self.type = node.__primarylabel__.lower()
-        self.id = str(node.__primaryvalue__)
-        self.attributes = node.attributes
-        self.links = node.links
-
-        if next_traversal:
-            self.relationships = node.get_relationships()
 
 
 class BaseModel(GraphObject):

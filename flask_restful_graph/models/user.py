@@ -1,12 +1,16 @@
-from py2neo.ogm import Property, RelatedTo
+from marshmallow import fields
+from py2neo.ogm import RelatedTo
 
 from .base_model import BaseModel
+from flask_restful_graph.schemas.schema_factory import \
+        register_model_property as register
 
 
 class User(BaseModel):
-    email = Property()
-    first_name = Property()
-    last_name = Property()
+
+    email = register('User', 'email', fields.Email)
+    first_name = register('User', 'first_name', fields.Str)
+    last_name = register('User', 'first_name', fields.Str)
 
     groups = RelatedTo('flask_restful_graph.models.Group', 'MEMBER_OF')
 

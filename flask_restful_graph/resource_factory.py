@@ -1,6 +1,7 @@
 from flask_restful import Resource
 
 from .schemas import ResourceDataSchema
+from .schemas.schema_factory import build_schemas
 
 
 data_schema = ResourceDataSchema()
@@ -12,6 +13,7 @@ def get_individual(cls, graph):
         node = cls.select(graph, id).first()
         resource_data = data_schema.serialize(node)
         return {'data': resource_data}
+
     get_by_id.__name__ += '_' + cls.__name__.lower()
     return get_by_id
 
@@ -24,18 +26,22 @@ def get_collection(cls, graph):
             n.__primaryvalue__: data_schema.serialize(n) for n in nodes
         }
         return {'data': resource_data}
+
     get_by_type.__name__ += '_' + cls.__name__.lower()
     return get_by_type
 
 
 class ResourceFactory(object):
 
-    def get_individual_and_collection_resources(self, cls, graph):
+    def __init__(self, graph):
+        self.graph = graph
+
+    def get_individual_and_collection_resources(self, cls):
         individual_resource = type(
             cls.__name__ + 'Resource',
             (Resource,),
             {
-                'get': get_individual(cls, graph)
+                'get': get_individual(cls, self.graph)
             }
         )
 
@@ -46,7 +52,7 @@ class ResourceFactory(object):
             collection_name + 'Resource',
             (Resource,),
             {
-                'get': get_collection(cls, graph)
+                'get': get_collection(cls, self.graph)
             }
         )
 

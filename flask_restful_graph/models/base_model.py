@@ -30,10 +30,15 @@ class BaseModel(GraphObject):
     def links(self):
         links = {}
 
-        links['self'] = url_for(
-            self.__class__.__name__.lower() + 'resource',
-            id=self.__primaryvalue__
-        )
+        try:
+            links['self'] = url_for(
+                self.__class__.__name__.lower() + 'resource',
+                id=self.__primaryvalue__
+            )
+        except RuntimeError as e:
+            print 'Cannot access "links" property outside application context!'
+            print e
+
         return links
 
     def get_relationships(self):

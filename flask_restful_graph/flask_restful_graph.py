@@ -4,8 +4,7 @@ from flask import Flask
 from flask_restful import Api
 from py2neo import Graph
 
-from models.group import Group
-from models.user import User
+from models import Group, User
 from resource_factory import ResourceFactory
 
 
@@ -16,16 +15,13 @@ api = Api(app)
 app.config.from_envvar('RESTFUL_GRAPH_SETTINGS', silent=True)
 
 graph_connection = Graph(password=os.environ.get('TEST_GRAPH_PASSWORD'))
-resource_factory = ResourceFactory()
+resource_factory = ResourceFactory(graph=graph_connection)
 
 
 group_resource, groups_resource = \
-    resource_factory.get_individual_and_collection_resources(
-        Group, graph_connection)
-
+    resource_factory.get_individual_and_collection_resources(Group)
 user_resource, users_resource = \
-    resource_factory.get_individual_and_collection_resources(
-        User, graph_connection)
+    resource_factory.get_individual_and_collection_resources(User)
 
 
 api.add_resource(groups_resource, '/groups/')

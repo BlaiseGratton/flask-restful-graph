@@ -1,33 +1,70 @@
 from flask import url_for
-from py2neo.ogm import GraphObject, RelatedObjects
+from marshmallow import Schema
+from py2neo.ogm import GraphObject, Property
 import stringcase
 
-from flask_restful_graph.schemas import ResourceDataSchema
 
-from .resource_data import ResourceData
-
-data_schema = ResourceDataSchema()
+registered_models = {}
 
 
 class BaseModel(GraphObject):
 
-    def to_resource(self, next_traversal):
-        return ResourceData(self, next_traversal)
+    schemas = {}
 
-    @property
-    def attributes(self):
-        attributes = {}
+    @classmethod
+    def add_model_prop(cls, model_name, prop_name,
+                       marshal_property, **kwargs):
+        try:
+            model = registered_models[model_name]
+        except KeyError:
+            model = {}
+            registered_models[model_name] = model
 
-        for prop in self.__class__.__dict__:
-            if (prop[0] is not '_' and type(self.__getattribute__(prop))
-                    is not RelatedObjects):
-                attributes[stringcase.camelcase(prop)] = \
-                    self.__getattribute__(prop)
+        # by default, (un)marshal every property to/from camelcased form
+        if 'load_from' not in kwargs and 'dump_to' not in kwargs:
+            camelcased = stringcase.camelcase(prop_name)
+            model[prop_name] = marshal_property(
+                    load_from=camelcased, dump_to=camelcased, **kwargs)
+        else:
+            model[prop_name] = marshal_property(**kwargs)
 
-        return attributes
+        return Property()
 
-    @property
-    def links(self):
+    @classmethod
+    def build_schemas(cls):
+        for model_name in registered_models:
+            cls.schemas[model_name] = type(
+                model_name + 'Schema',
+                (Schema,),
+                registered_models[model_name])()
+
+    #####################################################################
+    #                                                                   #
+    #                                                                   #
+    #                                                                   #
+    #####################################################################
+
+    def serialize(self, next_traversal=False):
+        resource = {}
+
+        data = {}
+        data['id'] = str(self.__primaryvalue__)
+        data['type'] = self.__primarylabel__.lower()
+        data['attributes'] = self.get_attributes()
+        resource['data'] = data
+
+        return resource
+
+    #####################################################################
+    #                                                                   #
+    #                                                                   #
+    #                                                                   #
+    #####################################################################
+
+    def get_attributes(self):
+        return BaseModel.schemas[self.__class__.__name__].dump(self).data
+
+    def get_links(self):
         links = {}
 
         try:
@@ -51,8 +88,9 @@ class BaseModel(GraphObject):
         for related_set in related_groups:
             direction = 'inbound' if related_set[0] is -1 else 'outbound'
             label = related_set[1]
-            related_nodes = [data_schema.serialize(n, next_traversal=False)
-                             for n in related_groups[related_set]]
+            related_nodes = []
+            # [BaseModel.SCHEMAS.serialize(n, next_traversal=False)
+            #  for n in related_groups[related_set]]
             relationships[label] = {
                 'direction': direction,
                 'data': related_nodes
@@ -60,6 +98,5 @@ class BaseModel(GraphObject):
 
         return relationships
 
-    @property
-    def meta(self):
+    def get_meta(self):
         pass

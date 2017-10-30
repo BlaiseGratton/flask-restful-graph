@@ -1,18 +1,15 @@
 from flask_restful import Resource
-
-from .schemas import ResourceDataSchema
-from .schemas.schema_factory import build_schemas
+from .models import BaseModel
 
 
-data_schema = ResourceDataSchema()
+BaseModel.build_schemas()
 
 
 def get_individual(cls, graph):
 
     def get_by_id(self, id):
         node = cls.select(graph, id).first()
-        resource_data = data_schema.serialize(node)
-        return {'data': resource_data}
+        return node.serialize()
 
     get_by_id.__name__ += '_' + cls.__name__.lower()
     return get_by_id
@@ -23,9 +20,9 @@ def get_collection(cls, graph):
     def get_by_type(self):
         nodes = cls.select(graph)
         resource_data = {
-            n.__primaryvalue__: data_schema.serialize(n) for n in nodes
+            n.__primaryvalue__: n.serialize() for n in nodes
         }
-        return {'data': resource_data}
+        return resource_data
 
     get_by_type.__name__ += '_' + cls.__name__.lower()
     return get_by_type

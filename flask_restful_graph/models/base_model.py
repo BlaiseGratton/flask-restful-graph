@@ -1,6 +1,6 @@
 from flask import url_for
 from marshmallow import Schema
-from py2neo.ogm import GraphObject, Property
+from py2neo.ogm import GraphObject, Property, RelatedObjects
 import stringcase
 
 
@@ -8,6 +8,10 @@ registered_models = {}
 
 
 class BaseModel(GraphObject):
+
+    #####################################################################
+    #                                                                   #
+    #           Registering marshalled properties                       #
 
     schemas = {}
 
@@ -40,63 +44,79 @@ class BaseModel(GraphObject):
 
     #####################################################################
     #                                                                   #
-    #                                                                   #
-    #                                                                   #
-    #####################################################################
+    #           Serializing                                             #
 
     def serialize(self, next_traversal=False):
         resource = {}
 
         data = {}
-        data['id'] = str(self.__primaryvalue__)
-        data['type'] = self.__primarylabel__.lower()
+        included, relationships = self.get_relationships()
+        self_links = self.get_self_links()
+
+        data['type'], data['id'] = self.get_type_and_id()
         data['attributes'] = self.get_attributes()
+        data['relationships'] = relationships
+        data['links'] = self_links
+
         resource['data'] = data
+        resource['included'] = included
 
         return resource
 
     #####################################################################
     #                                                                   #
-    #                                                                   #
-    #                                                                   #
-    #####################################################################
+    #           Helper methods for serializing                          #
 
     def get_attributes(self):
         return BaseModel.schemas[self.__class__.__name__].dump(self).data
 
-    def get_links(self):
+    def get_type_and_id(self):
+        return self.__primarylabel__.lower(), str(self.__primaryvalue__)
+
+    def get_self_links(self, collection=False):
         links = {}
 
         try:
             links['self'] = url_for(
                 self.__class__.__name__.lower() + 'resource',
-                id=self.__primaryvalue__
-            )
+                id=self.__primaryvalue__)
         except RuntimeError as e:
             print 'Cannot access "links" property outside application context!'
             print e
 
         return links
 
+    def get_related_links(self):
+        pass
+
     def get_relationships(self):
         relationships = {}
+        included = []
 
-        # this is a dictionary of groups of relationships
-        # e.g. {(-1, 'MEMBER_OF'): <py2neo.ogm.RelatedObjects object>}
-        related_groups = self._GraphObject__ogm.related
+        related = [p for p in self.__class__.__dict__
+                   if type(getattr(self, p)) is RelatedObjects]
 
-        for related_set in related_groups:
-            direction = 'inbound' if related_set[0] is -1 else 'outbound'
-            label = related_set[1]
-            related_nodes = []
-            # [BaseModel.SCHEMAS.serialize(n, next_traversal=False)
-            #  for n in related_groups[related_set]]
-            relationships[label] = {
-                'direction': direction,
-                'data': related_nodes
+        for related_set in related:
+            relationships[related_set] = {
+                'links': {
+                    'self': '',
+                    'related': ''
+                },
+                'data': []
             }
 
-        return relationships
+            for node in getattr(self, related_set):
+                serialized_node = {}
+                serialized_node['type'], \
+                    serialized_node['id'] = node.get_type_and_id()
+
+                relationships[related_set]['data']\
+                    .append(serialized_node.copy())
+
+                serialized_node['attributes'] = node.get_attributes()
+                included.append(serialized_node)
+
+        return included, relationships
 
     def get_meta(self):
         pass

@@ -54,3 +54,18 @@ class ResourceFactory(object):
         )
 
         return individual_resource, collection_resource
+
+    def get_relationship_resources(self, related_models):
+        resources = []
+
+        for model_name in related_models:
+            for relationship, plural in related_models[model_name].iteritems():
+                resources.append('/{}/<int:id>/relationships/{}'.format(
+                                    model_name.lower() + 's',
+                                    relationship))
+
+                resources.append('/{}/<int:id>/{}'.format(
+                                    model_name.lower() + 's',
+                                    relationship))
+
+        return resources

@@ -5,11 +5,16 @@ from .base_model import BaseModel
 
 
 class Group(BaseModel):
+
     title = BaseModel.add_model_prop('Group', 'title', fields.Str)
 
-    members = RelatedFrom('flask_restful_graph.models.User', 'MEMBER_OF')
+    members = BaseModel.add_relationship(
+                'Group',
+                RelatedFrom('flask_restful_graph.models.User', 'MEMBER_OF'),
+                related_name='members',
+                plural=True)
 
-    def __init__(self, title, **kwargs):
+    def __init__(self, title):
         self.title = title
 
     __pluralname__ = 'Groups'

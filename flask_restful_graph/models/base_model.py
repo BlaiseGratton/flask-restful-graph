@@ -11,9 +11,10 @@ class BaseModel(GraphObject):
 
     #####################################################################
     #                                                                   #
-    #           Registering marshalled properties                       #
+    #           Registering marshalled properties and related models    #
 
     schemas = {}
+    related_models = {}
 
     @classmethod
     def add_model_prop(cls, model_name, prop_name,
@@ -41,6 +42,15 @@ class BaseModel(GraphObject):
                 model_name + 'Schema',
                 (Schema,),
                 registered_models[model_name])()
+
+    @classmethod
+    def add_relationship(cls, model_name, relationship_definition,
+                         related_name, plural):
+        try:
+            cls.related_models[model_name][related_name] = plural
+        except KeyError:
+            cls.related_models[model_name] = {related_name: plural}
+        return relationship_definition
 
     #####################################################################
     #                                                                   #

@@ -10,7 +10,11 @@ class User(BaseModel):
     first_name = BaseModel.add_model_prop('User', 'first_name', fields.Str)
     last_name = BaseModel.add_model_prop('User', 'first_name', fields.Str)
 
-    groups = RelatedTo('flask_restful_graph.models.Group', 'MEMBER_OF')
+    groups = BaseModel.add_relationship(
+                'User',
+                RelatedTo('flask_restful_graph.models.Group', 'MEMBER_OF'),
+                related_name='groups',
+                plural=True)
 
     def __init__(self, email, **kwargs):
         self.email = email

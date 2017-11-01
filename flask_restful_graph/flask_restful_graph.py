@@ -4,7 +4,7 @@ from flask import Flask
 from flask_restful import Api
 from py2neo import Graph
 
-from models import Group, User
+from models import BaseModel, Group, User
 from resource_factory import ResourceFactory
 
 
@@ -22,6 +22,9 @@ group_resource, groups_resource = \
     resource_factory.get_individual_and_collection_resources(Group)
 user_resource, users_resource = \
     resource_factory.get_individual_and_collection_resources(User)
+
+relationship_resources =\
+    resource_factory.get_relationship_resources(BaseModel.related_models)
 
 
 api.add_resource(groups_resource, '/groups/')

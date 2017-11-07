@@ -5,19 +5,23 @@ from .models import BaseModel
 BaseModel.build_schemas()
 
 
-def get_individual(cls, graph):
+def create_resource(name, methods_dict):
+    return type(
+        name + 'Resource',
+        (Resource,),
+        methods_dict
+    )
 
+
+def get_individual(cls, graph):
     def get_by_id(self, id):
         return cls.select(graph, id).first()
-
     return get_by_id
 
 
 def get_collection(cls, graph):
-
     def get_by_type(self):
         return cls.select(graph)
-
     return get_by_type
 
 
@@ -29,10 +33,8 @@ class ResourceFactory(object):
     def get_individual_and_collection_resources(self, cls):
         get = get_individual(cls, self.graph)
 
-        individual_resource = type(
-            cls.__name__ + 'Resource',
-            (Resource,),
-            {
+        individual_resource = create_resource(
+            cls.__name__, {
                 'get': lambda self, id: get(self, id).serialize()
             }
         )
@@ -42,10 +44,8 @@ class ResourceFactory(object):
 
         get_all = get_collection(cls, self.graph)
 
-        collection_resource = type(
-            collection_name + 'Resource',
-            (Resource,),
-            {
+        collection_resource = create_resource(
+            collection_name, {
                 'get': lambda self: [n.serialize() for n in get_all(self)]
             }
         )
@@ -84,44 +84,31 @@ class ResourceFactory(object):
 
                 # extend Resource for each url
                 if plural:
-                    relationship_resource = type(
-                        model_name + relationship.title() +
-                        'RelationshipResource',
-                        (Resource,),
-                        {
+                    relationship_resource = create_resource(
+                        model_name + relationship + 'Relationship', {
                             'get': set_relationship(relationship, get)
                         }
                     )
 
-                    related_resource = type(
-                        model_name + relationship.title() + 'Resource',
-                        (Resource,),
-                        {
+                    related_resource = create_resource(
+                        model_name + relationship, {
                             'get': set_relationship(relationship, get)
                         }
                     )
                 else:
-                    relationship_resource = type(
-                        model_name + relationship + 'RelationshipResource',
-                        (Resource,),
-                        {
+                    relationship_resource = create_resource(
+                        model_name + relationship + 'Relationship', {
                             'get': lambda self, id:
-                                getattr(
-                                    get(self, id),
-                                    relationship
-                                ).serialize()
+                                getattr(get(self, id), relationship)
+                                .serialize()
                         }
                     )
 
-                    related_resource = type(
-                        model_name + relationship.title() + 'Resource',
-                        (Resource,),
-                        {
+                    related_resource = create_resource(
+                        model_name + relationship, {
                             'get': lambda self, id:
-                                getattr(
-                                    get(self, id),
-                                    relationship
-                                ).serialize()
+                                getattr(get(self, id), relationship)
+                                .serialize()
                         }
                     )
 

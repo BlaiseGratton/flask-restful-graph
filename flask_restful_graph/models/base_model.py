@@ -107,10 +107,17 @@ class BaseModel(GraphObject):
                    if type(getattr(self, p)) is RelatedObjects]
 
         for related_set in related:
+
             relationships[related_set] = {
                 'links': {
-                    'self': '',
-                    'related': ''
+                    'self': url_for(
+                        self.__class__.__name__.lower() + related_set +
+                        'relationshipresource',
+                        id=self.__primaryvalue__),
+                    'related': url_for(
+                        self.__class__.__name__.lower() + related_set +
+                        'resource',
+                        id=self.__primaryvalue__)
                 },
                 'data': []
             }

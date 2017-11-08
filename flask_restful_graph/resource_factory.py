@@ -25,6 +25,10 @@ def get_collection(cls, graph):
     return get_by_type
 
 
+def make_resource_linkage(type_and_id):
+    return {'type': type_and_id[0], 'id': type_and_id[1]}
+
+
 class ResourceFactory(object):
 
     def __init__(self, graph):
@@ -57,10 +61,13 @@ class ResourceFactory(object):
 
         # was having closure issues with `relationship` name in the loop, so
         # captured it in a closure
-        def set_relationship(relationship, func):
+        def get_relationships(relationship, func):
             def _get(self, id):
-                return [n.serialize() for n in
-                        getattr(func(self, id), relationship)]
+                relationships = getattr(func(self, id), relationship)
+                data = [make_resource_linkage(x.get_type_and_id())
+                        for x in relationships]
+                return {'data': data}
+
             return _get
 
         for model_name in related_models:
@@ -86,13 +93,13 @@ class ResourceFactory(object):
                 if plural:
                     relationship_resource = create_resource(
                         model_name + relationship + 'Relationship', {
-                            'get': set_relationship(relationship, get)
+                            'get': get_relationships(relationship, get)
                         }
                     )
 
                     related_resource = create_resource(
                         model_name + relationship, {
-                            'get': set_relationship(relationship, get)
+                            'get': get_relationships(relationship, get)
                         }
                     )
                 else:

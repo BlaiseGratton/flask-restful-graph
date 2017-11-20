@@ -108,19 +108,28 @@ class BaseModel(GraphObject):
 
         for related_set in related:
 
-            relationships[related_set] = {
-                'links': {
-                    'self': url_for(
-                        self.__class__.__name__.lower() + related_set +
-                        'relationshipresource',
-                        id=self.__primaryvalue__),
-                    'related': url_for(
-                        self.__class__.__name__.lower() + related_set +
-                        'resource',
-                        id=self.__primaryvalue__)
-                },
-                'data': []
-            }
+            try:
+                relationships[related_set] = {
+                    'links': {
+                        'self': url_for(
+                            self.__class__.__name__.lower() + related_set +
+                            'relationshipresource',
+                            id=self.__primaryvalue__),
+                        'related': url_for(
+                            self.__class__.__name__.lower() + related_set +
+                            'resource',
+                            id=self.__primaryvalue__)
+                    },
+                    'data': []
+                }
+            except RuntimeError as e:
+                print 'Cannot access "links" property outside application context!'
+                print e
+
+                relationships[related_set] = {
+                    'links': {},
+                    'data': []
+                }
 
             for node in getattr(self, related_set):
                 serialized_node = {}

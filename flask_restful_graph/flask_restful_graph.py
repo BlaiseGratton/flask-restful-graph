@@ -14,7 +14,13 @@ api = Api(app)
 
 app.config.from_envvar('RESTFUL_GRAPH_SETTINGS', silent=True)
 
-graph_connection = Graph(password=os.environ.get('TEST_GRAPH_PASSWORD'))
+
+def init_db(password):
+    return Graph(password=password)
+
+
+graph_password = os.environ.get('TEST_GRAPH_PASSWORD')
+graph_connection = init_db(graph_password)
 resource_factory = ResourceFactory(graph=graph_connection)
 
 

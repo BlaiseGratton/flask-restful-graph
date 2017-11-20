@@ -1,8 +1,15 @@
+from flask import request
 from flask_restful import Resource
 from .models import BaseModel
 
 
 BaseModel.build_schemas()
+
+
+def get_top_level_links():
+    links = {}
+    links['self'] = request.url
+    return links
 
 
 def create_resource(name, methods_dict):
@@ -37,9 +44,14 @@ class ResourceFactory(object):
     def get_individual_and_collection_resources(self, cls):
         get = get_individual(cls, self.graph)
 
+        def get_resource(self, id):
+            response = get(self, id).serialize()
+            response['links'] = get_top_level_links()
+            return response
+
         individual_resource = create_resource(
             cls.__name__, {
-                'get': lambda self, id: get(self, id).serialize()
+                'get': get_resource
             }
         )
 
@@ -64,9 +76,16 @@ class ResourceFactory(object):
         def get_relationships(relationship, func):
             def _get(self, id):
                 relationships = getattr(func(self, id), relationship)
+
                 data = [make_resource_linkage(x.get_type_and_id())
                         for x in relationships]
-                return {'data': data}
+
+                links = get_top_level_links()
+
+                return {
+                    'links': links,
+                    'data': data
+                }
 
             return _get
 

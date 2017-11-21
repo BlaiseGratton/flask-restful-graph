@@ -7,12 +7,14 @@ BaseModel.build_schemas()
 
 
 def get_top_level_links():
+    """Get dictionary of 'self' link and optional 'related' link"""
     links = {}
     links['self'] = request.url
     return links
 
 
-def create_resource(name, methods_dict):
+def create_resource_endpoint(name, methods_dict):
+    """Helper method to inherit from flask_restful.Resource for endpoints"""
     return type(
         name + 'Resource',
         (Resource,),
@@ -21,19 +23,44 @@ def create_resource(name, methods_dict):
 
 
 def get_individual(cls, graph):
+    """Return func for getting a node from graph by type and id"""
     def get_by_id(self, id):
         return cls.select(graph, id).first()
+
     return get_by_id
 
 
 def get_collection(cls, graph):
+    """
+    Return func for obtaining an iterable of nodes from graph of 1 type
+    """
     def get_by_type(self):
         return cls.select(graph)
+
     return get_by_type
 
 
 def make_resource_linkage(type_and_id):
+    """Unpack type_and_id tuple into serializable dictionary"""
     return {'type': type_and_id[0], 'id': type_and_id[1]}
+
+
+def get_resource(func):
+    """Return func for representing a single resource response"""
+    def make_response(self, id):
+        response = func(self, id).serialize()
+        response['links'] = get_top_level_links()
+        return response
+
+    return make_response
+
+
+def get_resources(func):
+    """Return func for representing a collection of resource objects"""
+    def make_response(self):
+        pass
+
+    return make_response
 
 
 class ResourceFactory(object):
@@ -41,32 +68,30 @@ class ResourceFactory(object):
     def __init__(self, graph):
         self.graph = graph
 
-    def get_individual_and_collection_resources(self, cls):
+    def get_individual_resource(self, cls):
         get = get_individual(cls, self.graph)
 
-        def get_resource(self, id):
-            response = get(self, id).serialize()
-            response['links'] = get_top_level_links()
-            return response
-
-        individual_resource = create_resource(
+        return create_resource_endpoint(
             cls.__name__, {
-                'get': get_resource
+                'get': get_resource(get)
             }
         )
 
+    def get_resource_collection(self, cls):
         collection_name = cls.__pluralname__ if hasattr(cls, '__pluralname__')\
             else cls.__name__ + 's'
 
         get_all = get_collection(cls, self.graph)
 
-        collection_resource = create_resource(
+        return create_resource_endpoint(
             collection_name, {
                 'get': lambda self: [n.serialize() for n in get_all(self)]
             }
         )
 
-        return individual_resource, collection_resource
+    def get_individual_and_collection_resources(self, cls):
+        return (self.get_individual_resource(cls),
+                self.get_resource_collection(cls))
 
     def get_relationship_resources(self, related_models):
         resources = []
@@ -95,10 +120,12 @@ class ResourceFactory(object):
                                 fromlist=[model_name])
             cls = getattr(module, model_name)
 
-            # function for getting individual resource
+            # returns function for getting individual resource by id
             get = get_individual(cls, self.graph)
 
-            for relationship, plural in related_models[model_name].iteritems():
+            for relationship, is_plural in\
+                    related_models[model_name].iteritems():
+
                 # build urls for resource's relationships and entities
                 relationship_url = ('/{}/<int:id>/relationships/{}'.format(
                                     model_name.lower() + 's',
@@ -109,20 +136,20 @@ class ResourceFactory(object):
                                     relationship))
 
                 # extend Resource for each url
-                if plural:
-                    relationship_resource = create_resource(
+                if is_plural:
+                    relationship_resource = create_resource_endpoint(
                         model_name + relationship + 'Relationship', {
                             'get': get_relationships(relationship, get)
                         }
                     )
 
-                    related_resource = create_resource(
+                    related_resource = create_resource_endpoint(
                         model_name + relationship, {
                             'get': get_relationships(relationship, get)
                         }
                     )
                 else:
-                    relationship_resource = create_resource(
+                    relationship_resource = create_resource_endpoint(
                         model_name + relationship + 'Relationship', {
                             'get': lambda self, id:
                                 getattr(get(self, id), relationship)
@@ -130,7 +157,7 @@ class ResourceFactory(object):
                         }
                     )
 
-                    related_resource = create_resource(
+                    related_resource = create_resource_endpoint(
                         model_name + relationship, {
                             'get': lambda self, id:
                                 getattr(get(self, id), relationship)

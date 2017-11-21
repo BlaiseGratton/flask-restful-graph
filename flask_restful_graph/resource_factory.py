@@ -7,14 +7,18 @@ BaseModel.build_schemas()
 
 
 def get_top_level_links():
-    """Get dictionary of 'self' link and optional 'related' link"""
+    """
+    Get dictionary of 'self' link and optional 'related' link
+    """
     links = {}
     links['self'] = request.url
     return links
 
 
 def create_resource_endpoint(name, methods_dict):
-    """Helper method to inherit from flask_restful.Resource for endpoints"""
+    """
+    Helper method to inherit from flask_restful.Resource for endpoints
+    """
     return type(
         name + 'Resource',
         (Resource,),
@@ -23,7 +27,9 @@ def create_resource_endpoint(name, methods_dict):
 
 
 def get_individual(cls, graph):
-    """Return func for getting a node from graph by type and id"""
+    """
+    Return func for getting a node from graph by type and id
+    """
     def get_by_id(self, id):
         return cls.select(graph, id).first()
 
@@ -41,12 +47,16 @@ def get_collection(cls, graph):
 
 
 def make_resource_linkage(type_and_id):
-    """Unpack type_and_id tuple into serializable dictionary"""
+    """
+    Unpack type_and_id tuple into serializable dictionary
+    """
     return {'type': type_and_id[0], 'id': type_and_id[1]}
 
 
 def get_resource(func):
-    """Return func for representing a single resource response"""
+    """
+    Return func for representing a single resource response
+    """
     def make_response(self, id):
         response = func(self, id).serialize()
         response['links'] = get_top_level_links()
@@ -56,7 +66,9 @@ def get_resource(func):
 
 
 def get_resources(func):
-    """Return func for representing a collection of resource objects"""
+    """
+    Return func for representing a collection of resource objects
+    """
     def make_response(self):
         pass
 

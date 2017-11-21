@@ -57,8 +57,6 @@ class BaseModel(GraphObject):
     #           Serializing                                             #
 
     def serialize(self, next_traversal=False):
-        resource = {}
-
         data = {}
         included, relationships = self.get_relationships()
         self_links = self.get_self_links()
@@ -68,10 +66,7 @@ class BaseModel(GraphObject):
         data['relationships'] = relationships
         data['links'] = self_links
 
-        resource['data'] = data
-        resource['included'] = included
-
-        return resource
+        return data, included
 
     #####################################################################
     #                                                                   #

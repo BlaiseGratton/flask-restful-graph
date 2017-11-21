@@ -58,11 +58,19 @@ def get_resource(func):
     Return func for representing a single resource response
     """
     def make_response(self, id):
-        response = func(self, id).serialize()
+        response = {}
+        response['data'], response['included'] = func(self, id).serialize()
         response['links'] = get_top_level_links()
         return response
 
     return make_response
+
+
+def find_type_and_id(collection, node):
+    return len(reduce(lambda item:
+                      item.get_type_and_id() == node.get_type_and_id(),
+               collection)
+               ) > 0
 
 
 def get_resources(func):
@@ -70,7 +78,22 @@ def get_resources(func):
     Return func for representing a collection of resource objects
     """
     def make_response(self):
-        pass
+        response = {
+            'data': [],
+            'included': []
+        }
+
+        for node in func(self):
+            data, included = node.serialize()
+            response['data'].append(data)
+            print included
+            for included_item in included:
+                if not response['included'] or\
+                   not find_type_and_id(response['included'], node):
+                    response['included'].append(included_item)
+
+        response['links'] = get_top_level_links()
+        return response
 
     return make_response
 
@@ -97,7 +120,7 @@ class ResourceFactory(object):
 
         return create_resource_endpoint(
             collection_name, {
-                'get': lambda self: [n.serialize() for n in get_all(self)]
+                'get': get_resources(get_all)
             }
         )
 

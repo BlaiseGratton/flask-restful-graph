@@ -6,6 +6,17 @@ from .models import BaseModel
 BaseModel.build_schemas()
 
 
+def get_class_from_model_name(model_name):
+    """
+    Obtain OGM class object from string name
+    """
+    module = __import__(
+        'flask_restful_graph.models',
+        fromlist=[model_name]
+    )
+    return getattr(module, model_name)
+
+
 def get_top_level_links():
     """
     Get dictionary of 'self' link and optional 'related' link
@@ -152,10 +163,7 @@ class ResourceFactory(object):
             return _get
 
         for model_name in related_models:
-            # obtain reference to class for OGM use
-            module = __import__('flask_restful_graph.models',
-                                fromlist=[model_name])
-            cls = getattr(module, model_name)
+            cls = get_class_from_model_name(model_name)
 
             get_node = get_individual_node(cls, self.graph)
 

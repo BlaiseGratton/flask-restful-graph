@@ -26,24 +26,24 @@ def create_resource_endpoint(name, methods_dict):
     )
 
 
-def get_individual(cls, graph):
+def get_individual_node(cls, graph):
     """
     Return func for getting a node from graph by type and id
     """
-    def get_by_id(self, id):
+    def get_node_by_id(self, id):
         return cls.select(graph, id).first()
 
-    return get_by_id
+    return get_node_by_id
 
 
-def get_collection(cls, graph):
+def get_node_collection(cls, graph):
     """
     Return func for obtaining an iterable of nodes from graph of 1 type
     """
-    def get_by_type(self):
+    def get_nodes_by_type(self):
         return cls.select(graph)
 
-    return get_by_type
+    return get_nodes_by_type
 
 
 def make_resource_linkage(type_and_id):
@@ -59,18 +59,20 @@ def get_resource(func):
     """
     def make_response(self, id):
         response = {}
-        response['data'], response['included'] = func(self, id).serialize()
         response['links'] = get_top_level_links()
+        response['data'], response['included'] = func(self, id).serialize()
         return response
 
     return make_response
 
 
-def find_type_and_id(collection, node):
-    return len(reduce(lambda item:
-                      item.get_type_and_id() == node.get_type_and_id(),
-               collection)
-               ) > 0
+def contains_type_and_id(collection, type_and_id):
+    """
+    Search collection for combo of type and id identifying a resource
+    """
+    for item in collection:
+        if (item['type'], item['id']) == type_and_id:
+            return True
 
 
 def get_resources(func):
@@ -79,6 +81,7 @@ def get_resources(func):
     """
     def make_response(self):
         response = {
+            'links': get_top_level_links(),
             'data': [],
             'included': []
         }
@@ -86,13 +89,12 @@ def get_resources(func):
         for node in func(self):
             data, included = node.serialize()
             response['data'].append(data)
-            print included
             for included_item in included:
+                type_and_id = included_item['type'], included_item['id']
                 if not response['included'] or\
-                   not find_type_and_id(response['included'], node):
+                   not contains_type_and_id(response['included'], type_and_id):
                     response['included'].append(included_item)
 
-        response['links'] = get_top_level_links()
         return response
 
     return make_response
@@ -104,7 +106,7 @@ class ResourceFactory(object):
         self.graph = graph
 
     def get_individual_resource(self, cls):
-        get = get_individual(cls, self.graph)
+        get = get_individual_node(cls, self.graph)
 
         return create_resource_endpoint(
             cls.__name__, {
@@ -116,7 +118,7 @@ class ResourceFactory(object):
         collection_name = cls.__pluralname__ if hasattr(cls, '__pluralname__')\
             else cls.__name__ + 's'
 
-        get_all = get_collection(cls, self.graph)
+        get_all = get_node_collection(cls, self.graph)
 
         return create_resource_endpoint(
             collection_name, {
@@ -155,8 +157,7 @@ class ResourceFactory(object):
                                 fromlist=[model_name])
             cls = getattr(module, model_name)
 
-            # returns function for getting individual resource by id
-            get = get_individual(cls, self.graph)
+            get_node = get_individual_node(cls, self.graph)
 
             for relationship, is_plural in\
                     related_models[model_name].iteritems():
@@ -174,20 +175,20 @@ class ResourceFactory(object):
                 if is_plural:
                     relationship_resource = create_resource_endpoint(
                         model_name + relationship + 'Relationship', {
-                            'get': get_relationships(relationship, get)
+                            'get': get_relationships(relationship, get_node)
                         }
                     )
 
                     related_resource = create_resource_endpoint(
                         model_name + relationship, {
-                            'get': get_relationships(relationship, get)
+                            'get': get_relationships(relationship, get_node)
                         }
                     )
                 else:
                     relationship_resource = create_resource_endpoint(
                         model_name + relationship + 'Relationship', {
                             'get': lambda self, id:
-                                getattr(get(self, id), relationship)
+                                getattr(get_node(self, id), relationship)
                                 .serialize()
                         }
                     )
@@ -195,7 +196,7 @@ class ResourceFactory(object):
                     related_resource = create_resource_endpoint(
                         model_name + relationship, {
                             'get': lambda self, id:
-                                getattr(get(self, id), relationship)
+                                getattr(get_node(self, id), relationship)
                                 .serialize()
                         }
                     )

@@ -118,7 +118,8 @@ class BaseModel(GraphObject):
                     'data': []
                 }
             except RuntimeError as e:
-                print 'Cannot access "links" property outside application context!'
+                print 'Cannot access "links" property outside \
+                        application context!'
                 print e
 
                 relationships[related_set] = {

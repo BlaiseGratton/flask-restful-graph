@@ -6,6 +6,13 @@ from .models import BaseModel
 BaseModel.build_schemas()
 
 
+###############################################################################
+#                                                                             #
+#                Utility functions                                            #
+#                                                                             #
+###############################################################################
+
+
 def get_class_from_model_name(model_name):
     """
     Obtain OGM class object from string name
@@ -64,6 +71,22 @@ def make_resource_linkage(type_and_id):
     return {'type': type_and_id[0], 'id': type_and_id[1]}
 
 
+def contains_type_and_id(collection, type_and_id):
+    """
+    Search collection for combo of type and id identifying a resource
+    """
+    for item in collection:
+        if (item['type'], item['id']) == type_and_id:
+            return True
+
+
+###############################################################################
+#                                                                             #
+#                 GET helpers                                                 #
+#                                                                             #
+###############################################################################
+
+
 def get_resource(func):
     """
     Return func for representing a single resource response
@@ -75,15 +98,6 @@ def get_resource(func):
         return response
 
     return make_response
-
-
-def contains_type_and_id(collection, type_and_id):
-    """
-    Search collection for combo of type and id identifying a resource
-    """
-    for item in collection:
-        if (item['type'], item['id']) == type_and_id:
-            return True
 
 
 def get_resources(func):
@@ -114,7 +128,7 @@ def get_resources(func):
 # was having closure issues with `relationship` name in the loop, so
 # captured it in a closure
 def get_relationships(relationship, func):
-    def _get(self, id):
+    def get(self, id):
         relationships = getattr(func(self, id), relationship)
 
         data = [make_resource_linkage(x.get_type_and_id())
@@ -127,11 +141,11 @@ def get_relationships(relationship, func):
             'data': data
         }
 
-    return _get
+    return get
 
 
 def get_related_resources(relationship, func):
-    def _get(self, id):
+    def get(self, id):
         related_nodes = getattr(func(self, id), relationship)
 
         data = [node.serialize()[0] for node in related_nodes]
@@ -151,7 +165,7 @@ class ResourceFactory(object):
     def __init__(self, graph):
         self.graph = graph
 
-    def get_individual_resource(self, cls):
+    def make_individual_resource(self, cls):
         get = get_individual_node(cls, self.graph)
 
         return create_resource_endpoint(
@@ -160,7 +174,7 @@ class ResourceFactory(object):
             }
         )
 
-    def get_resource_collection(self, cls):
+    def make_resource_collection(self, cls):
         collection_name = cls.__pluralname__ if hasattr(cls, '__pluralname__')\
             else cls.__name__ + 's'
 
@@ -168,15 +182,16 @@ class ResourceFactory(object):
 
         return create_resource_endpoint(
             collection_name, {
-                'get': get_resources(get_all)
+                'get': get_resources(get_all),
+                'post': post_to_resource(cls, self.graph)
             }
         )
 
-    def get_individual_and_collection_resources(self, cls):
-        return (self.get_individual_resource(cls),
-                self.get_resource_collection(cls))
+    def make_individual_and_collection_resources(self, cls):
+        return (self.make_individual_resource(cls),
+                self.make_resource_collection(cls))
 
-    def get_relationship_resources(self, related_models):
+    def make_relationship_resources(self, related_models):
         resources = []
 
         for model_name in related_models:

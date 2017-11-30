@@ -25,11 +25,11 @@ resource_factory = ResourceFactory(graph=graph_connection)
 
 
 group_resource, groups_resource = \
-    resource_factory.get_individual_and_collection_resources(Group)
+    resource_factory.make_individual_and_collection_resources(Group)
 user_resource, users_resource = \
-    resource_factory.get_individual_and_collection_resources(User)
+    resource_factory.make_individual_and_collection_resources(User)
 relationship_resources = \
-    resource_factory.get_relationship_resources(BaseModel.related_models)
+    resource_factory.make_relationship_resources(BaseModel.related_models)
 
 api.add_resource(groups_resource, '/groups/')
 api.add_resource(group_resource, '/groups/<int:id>')

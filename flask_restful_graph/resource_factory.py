@@ -111,6 +111,41 @@ def get_resources(func):
     return make_response
 
 
+# was having closure issues with `relationship` name in the loop, so
+# captured it in a closure
+def get_relationships(relationship, func):
+    def _get(self, id):
+        relationships = getattr(func(self, id), relationship)
+
+        data = [make_resource_linkage(x.get_type_and_id())
+                for x in relationships]
+
+        links = get_top_level_links()
+
+        return {
+            'links': links,
+            'data': data
+        }
+
+    return _get
+
+
+def get_related_resources(relationship, func):
+    def _get(self, id):
+        related_nodes = getattr(func(self, id), relationship)
+
+        data = [node.serialize()[0] for node in related_nodes]
+
+        links = get_top_level_links()
+
+        return {
+            'links': links,
+            'data': data
+        }
+
+    return _get
+
+
 class ResourceFactory(object):
 
     def __init__(self, graph):
@@ -144,24 +179,6 @@ class ResourceFactory(object):
     def get_relationship_resources(self, related_models):
         resources = []
 
-        # was having closure issues with `relationship` name in the loop, so
-        # captured it in a closure
-        def get_relationships(relationship, func):
-            def _get(self, id):
-                relationships = getattr(func(self, id), relationship)
-
-                data = [make_resource_linkage(x.get_type_and_id())
-                        for x in relationships]
-
-                links = get_top_level_links()
-
-                return {
-                    'links': links,
-                    'data': data
-                }
-
-            return _get
-
         for model_name in related_models:
             cls = get_class_from_model_name(model_name)
 
@@ -189,7 +206,8 @@ class ResourceFactory(object):
 
                     related_resource = create_resource_endpoint(
                         model_name + relationship, {
-                            'get': get_relationships(relationship, get_node)
+                            'get': get_related_resources(
+                                    relationship, get_node)
                         }
                     )
                 else:

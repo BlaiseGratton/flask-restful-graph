@@ -181,48 +181,45 @@ class ResourceFactory(object):
 
         for model_name in related_models:
             cls = get_class_from_model_name(model_name)
-
             get_node = get_individual_node(cls, self.graph)
 
-            for relationship, is_plural in\
-                    related_models[model_name].iteritems():
+            for relation, is_plural in related_models[model_name].iteritems():
 
                 # build urls for resource's relationships and entities
-                relationship_url = ('/{}/<int:id>/relationships/{}'.format(
+                relationship_url = '/{}/<int:id>/relationships/{}'.format(
                                     model_name.lower() + 's',
-                                    relationship))
+                                    relation)
 
-                related_property_url = ('/{}/<int:id>/{}'.format(
-                                    model_name.lower() + 's',
-                                    relationship))
+                related_property_url = '/{}/<int:id>/{}'.format(
+                                    model_name.lower() + 's', relation)
 
                 # extend Resource for each url
                 if is_plural:
                     relationship_resource = create_resource_endpoint(
-                        model_name + relationship + 'Relationship', {
-                            'get': get_relationships(relationship, get_node)
+                        model_name + relation + 'Relationship', {
+                            'get': get_relationships(relation, get_node)
                         }
                     )
 
                     related_resource = create_resource_endpoint(
-                        model_name + relationship, {
+                        model_name + relation, {
                             'get': get_related_resources(
-                                    relationship, get_node)
+                                    relation, get_node)
                         }
                     )
                 else:
                     relationship_resource = create_resource_endpoint(
-                        model_name + relationship + 'Relationship', {
+                        model_name + relation + 'Relationship', {
                             'get': lambda self, id:
-                                getattr(get_node(self, id), relationship)
+                                getattr(get_node(self, id), relation)
                                 .serialize()
                         }
                     )
 
                     related_resource = create_resource_endpoint(
-                        model_name + relationship, {
+                        model_name + relation, {
                             'get': lambda self, id:
-                                getattr(get_node(self, id), relationship)
+                                getattr(get_node(self, id), relation)
                                 .serialize()
                         }
                     )

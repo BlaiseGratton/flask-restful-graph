@@ -157,7 +157,29 @@ def get_related_resources(relationship, func):
             'data': data
         }
 
-    return _get
+    return get
+
+
+###############################################################################
+#                                                                             #
+#                 POST helpers                                                #
+#                                                                             #
+###############################################################################
+
+
+def post_to_resource(cls, graph):
+    def post(self):
+        body = request.get_json()
+        schema = BaseModel.schemas[cls.__name__]
+
+    return post
+
+
+###############################################################################
+#                                                                             #
+#                                                                             #
+#                                                                             #
+###############################################################################
 
 
 class ResourceFactory(object):

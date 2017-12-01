@@ -96,14 +96,7 @@ def bad_request(*error_messages):
     error_object = {'errors': []}
 
     for message in error_messages:
-        try:
-            for attribute, error_list in message.iteritems():
-                for error in error_list:
-                    error_object['errors'].append({
-                        'detail': '{}: {}'.format(attribute, error)
-                    })
-        except AttributeError:
-            error_object['errors'].append({'detail': message})
+        error_object['errors'].append({'detail': message})
 
     response = jsonify(error_object)
     response.status_code = 400
@@ -226,7 +219,10 @@ def post_to_resource(cls, graph):
                 return response
 
             else:
-                return bad_request(errors)
+                return bad_request(
+                    *['{}: {}'.format(attribute, error)
+                      for attribute, error_list in errors.iteritems()
+                      for error in error_list])
 
         except (ConstraintError, ValueError) as e:
             return bad_request(e.message)

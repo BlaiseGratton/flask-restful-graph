@@ -1,5 +1,7 @@
-from flask import request
+from flask import jsonify, request
 from flask_restful import Resource
+from py2neo import ConstraintError
+
 from .models import BaseModel
 
 
@@ -78,6 +80,34 @@ def contains_type_and_id(collection, type_and_id):
     for item in collection:
         if (item['type'], item['id']) == type_and_id:
             return True
+
+
+###############################################################################
+#                                                                             #
+#                 Error object helpers                                        #
+#                                                                             #
+###############################################################################
+
+
+def bad_request(*error_messages):
+    """
+    Return 400 status code with list of error messages
+    """
+    error_object = {'errors': []}
+
+    for message in error_messages:
+        try:
+            for attribute, error_list in message.iteritems():
+                for error in error_list:
+                    error_object['errors'].append({
+                        'detail': '{}: {}'.format(attribute, error)
+                    })
+        except AttributeError:
+            error_object['errors'].append({'detail': message})
+
+    response = jsonify(error_object)
+    response.status_code = 400
+    return response
 
 
 ###############################################################################
@@ -171,6 +201,38 @@ def post_to_resource(cls, graph):
     def post(self):
         body = request.get_json()
         schema = BaseModel.schemas[cls.__name__]
+
+        try:
+            if body['data']['type'] != cls.__name__.lower():
+                return bad_request('"type" member does not match resource')
+
+            data, errors = schema.load(body['data']['attributes'])
+
+            if not data:
+                return bad_request('No matching attributes submitted')
+
+            elif not errors:
+                new_node = cls()
+
+                for attribute, value in data.iteritems():
+                    setattr(new_node, attribute, value)
+
+                graph.push(new_node)
+
+                response = {}
+                response['links'] = 'fix meeeee'
+                response['data'], response['included'] = new_node.serialize()
+
+                return response
+
+            else:
+                return bad_request(errors)
+
+        except (ConstraintError, ValueError) as e:
+            return bad_request(e.message)
+
+        except KeyError as e:
+            return bad_request('KeyError: missing key "{}"'.format(e.message))
 
     return post
 

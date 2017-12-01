@@ -19,11 +19,17 @@ def get_class_from_model_name(model_name):
     """
     Obtain OGM class object from string name
     """
-    module = __import__(
-        'flask_restful_graph.models',
-        fromlist=[model_name]
-    )
-    return getattr(module, model_name)
+    try:
+        module = __import__(
+            'flask_restful_graph.models',
+            fromlist=[model_name]
+        )
+        return getattr(module, model_name)
+    except AttributeError:
+        raise ValueError(
+            'Requested model "{}" not found in module {}'.format(
+                model_name, module.__name__)
+        )
 
 
 def get_top_level_links():
@@ -100,6 +106,15 @@ def bad_request(*error_messages):
 
     response = jsonify(error_object)
     response.status_code = 400
+    return response
+
+
+def not_found(error_message):
+    """
+    Return 404 status code with info about attempted lookup
+    """
+    response = jsonify({'errors': [{'detail': error_message}]})
+    response.status_code = 404
     return response
 
 
@@ -191,6 +206,7 @@ def get_related_resources(relationship, func):
 
 
 def post_to_resource(cls, graph):
+
     def post(self):
         body = request.get_json()
         schema = BaseModel.schemas[cls.__name__]
@@ -205,12 +221,107 @@ def post_to_resource(cls, graph):
                 return bad_request('No matching attributes submitted')
 
             elif not errors:
+
+                # get any included relationships in the request and
+                # check if they exist (else 404)
+                if 'relationships' in body['data']:
+                    added_relationships = body['data']['relationships']
+                    relationships = []
+
+                    # 'entities' is either a single resource linkage object
+                    # or a list of resource linkage objects
+                    # so we need to check types :(
+                    for prop_name, entities in added_relationships.iteritems():
+                        related_models = BaseModel.related_models[cls.__name__]
+
+                        if prop_name not in related_models:
+                            return bad_request('{} model does not contain \
+                                    relationship "{}"'.format(
+                                        cls.__name__, prop_name
+                                    ))
+
+                        try:
+                            if isinstance(entities['data'], dict):
+                                # this boolean means it's a to-many collection
+                                if related_models[prop_name]:
+                                    return bad_request(
+                                        'Property "{}" on {} entity is not \
+                                         a collection but was submitted as \
+                                         one'.format(prop_name, cls.__name__))
+
+                                related_cls = \
+                                    get_class_from_model_name(
+                                        str(entities['data']['type'].title())
+                                    )
+                                get_node_by_id = \
+                                    get_individual_node(related_cls, graph)
+
+                                node_id = int(entities['data']['id'])
+                                node = get_node_by_id(None, node_id)
+
+                                if not node:
+                                    return not_found('Requested node of\
+                                                    type {} with id {}\
+                                                    not found'.format(
+                                                        cls.__name__, node_id
+                                                    ))
+                                else:
+                                    relationships.append((prop_name, node))
+
+                            # it is a list of resource linkage objects
+                            else:
+                                # this boolean means it's a to-many collection
+                                if not related_models[prop_name]:
+                                    return bad_request(
+                                        'Property "{}" on {} entity is a \
+                                         collection but was not submitted \
+                                         as one'.format(
+                                             prop_name, cls.__name__)
+                                        )
+
+                                model_name = str(entities['data'][0]['type'])
+                                related_cls = \
+                                    get_class_from_model_name(
+                                        model_name.title()
+                                    )
+                                get_node_by_id = \
+                                    get_individual_node(related_cls, graph)
+
+                                for related in entities['data']:
+                                    node_id = int(related['id'])
+                                    node = get_node_by_id(None, node_id)
+
+                                    if not node:
+                                        return not_found(
+                                            'Requested node of type {} \
+                                             with id {} not found'.format(
+                                                cls.__name__, node_id
+                                            ))
+                                    else:
+                                        relationships.append((prop_name, node))
+
+                        except ValueError as e:
+                            return bad_request('Couldn\'t parse "id"\
+                                                property to an int')
+                        except KeyError:
+                            return bad_request(
+                                    'Malformed resource linkage in\
+                                     "relationships" member')
+
+                        print prop_name, entities
+
                 new_node = cls()
 
                 for attribute, value in data.iteritems():
                     setattr(new_node, attribute, value)
 
-                graph.push(new_node)
+                try:
+                    for prop_name, node in relationships:
+                        getattr(new_node, prop_name).add(node)
+                    graph.push(new_node)
+
+                except ConstraintError as e:
+                    return bad_request(e.message)
 
                 response = {}
                 response['links'] = 'fix meeeee'
@@ -224,7 +335,7 @@ def post_to_resource(cls, graph):
                       for attribute, error_list in errors.iteritems()
                       for error in error_list])
 
-        except (ConstraintError, ValueError) as e:
+        except ValueError as e:
             return bad_request(e.message)
 
         except KeyError as e:

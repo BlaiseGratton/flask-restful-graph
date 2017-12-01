@@ -14,7 +14,4 @@ class Group(BaseModel):
                 related_name='members',
                 plural=True)
 
-    def __init__(self, title):
-        self.title = title
-
     __pluralname__ = 'Groups'

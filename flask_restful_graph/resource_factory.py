@@ -392,8 +392,7 @@ def patch_resource(cls, graph):
 
                         try:
                             if isinstance(entities['data'], dict):
-                                # this boolean means it's a to-many collection
-                                if related_models[prop_name]:
+                                if related_models[prop_name]['is_plural']:
                                     return bad_request(
                                         'Property "{}" on {} entity is not \
                                          a collection but was submitted as \
@@ -420,8 +419,7 @@ def patch_resource(cls, graph):
 
                             # it is a list of resource linkage objects
                             else:
-                                # this boolean means it's a to-many collection
-                                if not related_models[prop_name]:
+                                if not related_models[prop_name]['is_plural']:
                                     return bad_request(
                                         'Property "{}" on {} entity is a \
                                          collection but was not submitted \
@@ -448,12 +446,13 @@ def patch_resource(cls, graph):
                                         relationships.append((prop_name, node))
 
                         except ValueError as e:
-                            return bad_request('Couldn\'t parse "id"\
-                                                property to an int')
+                            return bad_request(
+                                'Couldn\'t parse "id" property to an int')
+
                         except KeyError:
                             return bad_request(
-                                    'Malformed resource linkage in\
-                                     "relationships" member')
+                                'Malformed resource linkage in \
+                                "relationships" member')
 
                         print prop_name, entities
 
@@ -498,6 +497,71 @@ def patch_resource(cls, graph):
     return patch
 
 
+def patch_relationship(relation, cls, graph, is_plural):
+
+    def patch(self, id):
+        body = request.get_json()
+
+        if not body or 'data' not in body:
+            return bad_request('No JSON data body provided')
+
+        entity = cls.select(graph, id).first()
+
+        if not entity:
+            return not_found(
+                'Did not find resource of type "{}" with id "{}"'
+                .format(cls.__name__, id)
+            )
+
+        if is_plural:
+            relationships = []
+
+            # get any included relationships in the request and
+            # check if they exist (else 404)
+            related_cls = get_class_from_model_name(
+                BaseModel.related_models[cls.__name__][relation]['class_name']
+                .split('.')[-1]
+            )
+
+            try:
+                for type_and_id in body['data']:
+                    node_id = int(type_and_id.get('id'))
+                    node = related_cls.select(graph, node_id).first()
+
+                    if not node:
+                        return not_found(
+                            'Requested node of type {} with id {}\
+                            not found'.format(cls.__name__, node_id))
+                    else:
+                        relationships.append(node)
+
+                # clear existing related nodes regardless if request has any
+                getattr(entity, relation).clear()
+
+                if relationships:
+                    try:
+                        for node in relationships:
+                            getattr(entity, relation).add(node)
+                        graph.push(entity)
+
+                    except ConstraintError as e:
+                        return bad_request(e.message)
+
+            except TypeError:
+                return bad_request('"data" member was not iterable')
+
+        else:
+            pass
+
+        response = {}
+        response['links'] = 'fix meeeee'
+        response['data'], response['included'] = entity.serialize()
+
+        return response
+
+    return patch
+
+
 ###############################################################################
 #                                                                             #
 #                                                                             #
@@ -511,11 +575,11 @@ class ResourceFactory(object):
         self.graph = graph
 
     def make_individual_resource(self, cls):
-        get = get_individual_node(cls, self.graph)
+        get_node = get_individual_node(cls, self.graph)
 
         return create_resource_endpoint(
             cls.__name__, {
-                'get': get_resource(get),
+                'get': get_resource(get_node),
                 'patch': patch_resource(cls, self.graph)
             }
         )
@@ -544,8 +608,7 @@ class ResourceFactory(object):
             cls = get_class_from_model_name(model_name)
             get_node = get_individual_node(cls, self.graph)
 
-            for relation, is_plural in related_models[model_name].iteritems():
-
+            for relation, rel_def in related_models[model_name].iteritems():
                 # build urls for resource's relationships and entities
                 relationship_url = '/{}/<int:id>/relationships/{}'.format(
                                     model_name.lower() + 's',
@@ -555,10 +618,15 @@ class ResourceFactory(object):
                                     model_name.lower() + 's', relation)
 
                 # extend Resource for each url
-                if is_plural:
+                if rel_def['is_plural']:
                     relationship_resource = create_resource_endpoint(
                         model_name + relation + 'Relationship', {
-                            'get': get_relationships(relation, get_node)
+                            'get': get_relationships(relation, get_node),
+                            'patch': patch_relationship(
+                                relation,
+                                cls,
+                                self.graph,
+                                rel_def['is_plural'])
                         }
                     )
 
@@ -571,17 +639,13 @@ class ResourceFactory(object):
                 else:
                     relationship_resource = create_resource_endpoint(
                         model_name + relation + 'Relationship', {
-                            'get': lambda self, id:
-                                getattr(get_node(self, id), relation)
-                                .serialize()
+                            'get': get_resource(get_node)
                         }
                     )
 
                     related_resource = create_resource_endpoint(
                         model_name + relation, {
-                            'get': lambda self, id:
-                                getattr(get_node(self, id), relation)
-                                .serialize()
+                            'get': get_resource(get_node)
                         }
                     )
 

@@ -46,10 +46,14 @@ class BaseModel(GraphObject):
     @classmethod
     def add_relationship(cls, model_name, relationship_definition,
                          related_name, plural):
+        relationship = {
+            'is_plural': plural,
+            'class_name': relationship_definition.__dict__['related_class']
+        }
         try:
-            cls.related_models[model_name][related_name] = plural
+            cls.related_models[model_name][related_name] = relationship
         except KeyError:
-            cls.related_models[model_name] = {related_name: plural}
+            cls.related_models[model_name] = {related_name: relationship}
         return relationship_definition
 
     #####################################################################

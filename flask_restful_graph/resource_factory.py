@@ -276,7 +276,8 @@ def post_to_resource(cls, graph):
                                         )
 
                                 model_name = str(entities['data'][0]['type'])
-                                related_cls = get_class_from_model_name(model_name.title())
+                                related_cls = get_class_from_model_name(
+                                    model_name.title())
                                 get_node_by_id = \
                                     get_individual_node(related_cls, graph)
 
@@ -333,6 +334,61 @@ def post_to_resource(cls, graph):
 
         except KeyError as e:
             return bad_request('KeyError: missing key "{}"'.format(e.message))
+
+    return post
+
+
+def post_to_relationship(relation, cls, graph):
+
+    def post(self, id):
+        body = request.get_json()
+
+        if not body or 'data' not in body:
+            return bad_request('No JSON data body provided')
+
+        entity = cls.select(graph, id).first()
+
+        if not entity:
+            return not_found(
+                'Did not find resource of type "{}" with id "{}"'
+                .format(cls.__name__, id)
+            )
+
+        relationships = []
+
+        # check if requested related entities exist (else 404)
+        related_cls = get_class_from_model_name(
+            BaseModel.related_models[cls.__name__][relation]['class_name']
+            .split('.')[-1])
+
+        try:
+            for type_and_id in body['data']:
+                node_id = int(type_and_id.get('id'))
+                node = related_cls.select(graph, node_id).first()
+
+                if not node:
+                    return not_found(
+                        'Requested node of type {} with id {}\
+                        not found'.format(cls.__name__, node_id))
+                else:
+                    relationships.append(node)
+
+            try:
+                for node in relationships:
+                    getattr(entity, relation).add(node)
+                graph.push(entity)
+
+            except ConstraintError as e:
+                return bad_request(e.message)
+
+        except TypeError:
+            return bad_request('"data" member was not iterable')
+
+        response = {}
+        response['links'] = 'fix meeeee'
+        response['data'], response['included'] = entity.serialize()
+
+        return response
 
     return post
 
@@ -428,7 +484,8 @@ def patch_resource(cls, graph):
                                         )
 
                                 model_name = str(entities['data'][0]['type'])
-                                related_cls = get_class_from_model_name(model_name.title())
+                                related_cls = get_class_from_model_name(
+                                                 model_name.title())
                                 get_node_by_id = \
                                     get_individual_node(related_cls, graph)
 
@@ -626,7 +683,9 @@ class ResourceFactory(object):
                                 relation,
                                 cls,
                                 self.graph,
-                                rel_def['is_plural'])
+                                rel_def['is_plural']),
+                            'post': post_to_relationship(
+                                relation, cls, self.graph)
                         }
                     )
 

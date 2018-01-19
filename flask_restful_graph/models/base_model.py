@@ -12,6 +12,8 @@ class BaseModel(GraphObject):
     #####################################################################
     #                                                                   #
     #           Registering marshalled properties and related models    #
+    #                                                                   #
+    #####################################################################
 
     schemas = {}
     related_models = {}
@@ -59,6 +61,8 @@ class BaseModel(GraphObject):
     #####################################################################
     #                                                                   #
     #           Serializing                                             #
+    #                                                                   #
+    #####################################################################
 
     def serialize(self, next_traversal=False):
         data = {}
@@ -75,6 +79,8 @@ class BaseModel(GraphObject):
     #####################################################################
     #                                                                   #
     #           Helper methods for serializing                          #
+    #                                                                   #
+    #####################################################################
 
     def get_attributes(self):
         return BaseModel.schemas[self.__class__.__name__].dump(self).data

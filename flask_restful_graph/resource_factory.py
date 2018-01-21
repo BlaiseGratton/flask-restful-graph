@@ -217,12 +217,12 @@ def post_to_resource(cls, graph):
                 return bad_request('No matching attributes submitted')
 
             elif not errors:
+                relationships = []
 
                 # get any included relationships in the request and
                 # check if they exist (else 404)
                 if 'relationships' in body['data']:
                     added_relationships = body['data']['relationships']
-                    relationships = []
 
                     # 'entities' is either a single resource linkage object
                     # or a list of resource linkage objects
@@ -583,6 +583,16 @@ def patch_relationship(relation, cls, graph, is_plural):
             try:
                 for type_and_id in body['data']:
                     node_id = int(type_and_id.get('id'))
+
+                    if type_and_id['type'] is not related_cls.__name__.lower():
+                        return bad_request(
+                            'Requested node of type {} with id {}\
+                            not of type {}'.format(
+                                type_and_id.get('type'),
+                                node_id,
+                                related_cls.__name__
+                            ))
+
                     node = related_cls.select(graph, node_id).first()
 
                     if not node:
@@ -618,6 +628,63 @@ def patch_relationship(relation, cls, graph, is_plural):
 
     return patch
 
+
+###############################################################################
+#                                                                             #
+#                 DELETE helpers                                              #
+#                                                                             #
+###############################################################################
+
+def delete_relationships(relation, cls, graph):
+
+    def delete(self, id):
+        body = request.get_json()
+
+        if not body or 'data' not in body:
+            return bad_request('No JSON data body provided')
+
+        entity = cls.select(graph, id).first()
+
+        if not entity:
+            return not_found(
+                'Did not find resource of type "{}" with id "{}"'
+                .format(cls.__name__, id)
+            )
+
+        related_cls = get_class_from_model_name(
+            BaseModel.related_models[cls.__name__][relation]['class_name']
+            .split('.')[-1]
+            )
+
+        rels_to_remove = []
+
+        for type_and_id in body['data']:
+            node_id = int(type_and_id.get('id'))
+
+            if type_and_id['type'] != related_cls.__name__.lower():
+                return bad_request(
+                    'Requested node of type {} with id {}\
+                    not of type {}'.format(
+                        type_and_id.get('type'),
+                        node_id,
+                        related_cls.__name__
+                    ))
+
+            node = related_cls.select(graph, node_id).first()
+
+            if node:
+                rels_to_remove.append(node)
+
+        for node in rels_to_remove:
+            getattr(entity, relation).remove(node)
+        graph.push(entity)
+
+        response = {}
+        response['links'] = 'fix meeeee'
+        response['data'], response['included'] = entity.serialize()
+        return response
+
+    return delete
 
 ###############################################################################
 #                                                                             #
@@ -687,7 +754,11 @@ class ResourceFactory(object):
                                 rel_def['is_plural']),
                             'post': post_to_relationship(
                                 relation, cls, self.graph),
-                            'delete': None
+                            'delete': delete_relationships(
+                                relation,
+                                cls,
+                                self.graph
+                            )
                         }
                     )
 
@@ -701,7 +772,12 @@ class ResourceFactory(object):
                     relationship_resource = create_resource_endpoint(
                         model_name + relation + 'Relationship', {
                             'get': get_resource(get_node),
-                            'delete': None
+                            'patch': patch_relationship(
+                                relation,
+                                cls,
+                                self.graph,
+                                rel_def['is_plural']
+                            )
                         }
                     )
 

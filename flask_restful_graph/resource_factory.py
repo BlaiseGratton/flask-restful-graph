@@ -637,7 +637,8 @@ class ResourceFactory(object):
         return create_resource_endpoint(
             cls.__name__, {
                 'get': get_resource(get_node),
-                'patch': patch_resource(cls, self.graph)
+                'patch': patch_resource(cls, self.graph),
+                'delete': None
             }
         )
 
@@ -685,7 +686,8 @@ class ResourceFactory(object):
                                 self.graph,
                                 rel_def['is_plural']),
                             'post': post_to_relationship(
-                                relation, cls, self.graph)
+                                relation, cls, self.graph),
+                            'delete': None
                         }
                     )
 
@@ -698,7 +700,8 @@ class ResourceFactory(object):
                 else:
                     relationship_resource = create_resource_endpoint(
                         model_name + relation + 'Relationship', {
-                            'get': get_resource(get_node)
+                            'get': get_resource(get_node),
+                            'delete': None
                         }
                     )
 

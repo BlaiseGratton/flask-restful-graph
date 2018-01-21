@@ -686,6 +686,24 @@ def delete_relationships(relation, cls, graph):
 
     return delete
 
+
+def delete_resource(cls, graph):
+
+    def delete(self, id):
+        entity = cls.select(graph, id).first()
+
+        if not entity:
+            return not_found(
+                'Did not find resource of type "{}" with id "{}"'
+                .format(cls.__name__, id))
+
+        graph.delete(entity)
+
+        return ('', 204)
+
+    return delete
+
+
 ###############################################################################
 #                                                                             #
 #                                                                             #
@@ -705,7 +723,7 @@ class ResourceFactory(object):
             cls.__name__, {
                 'get': get_resource(get_node),
                 'patch': patch_resource(cls, self.graph),
-                'delete': None
+                'delete': delete_resource(cls, self.graph)
             }
         )
 

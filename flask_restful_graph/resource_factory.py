@@ -220,12 +220,18 @@ def get_related_resource(relationship, func):
         # RelatedObjects property type only supports iteration, so it seems
         related_entity = [n.serialize()
                           for n in getattr(func(self, id), relationship)]
-        data = related_entity[0] if related_entity else None
-
-        return {
-            'data': data,
-            'links': get_top_level_links()
-        }
+        if related_entity:
+            data, included = related_entity[0]
+            return {
+                'data': data,
+                'included': included,
+                'links': get_top_level_links()
+            }
+        else:
+            return {
+                'data': None,
+                'links': get_top_level_links()
+            }
 
     return get
 
@@ -639,20 +645,47 @@ def patch_relationship(relation, cls, graph, is_plural):
                 # clear existing related nodes regardless if request has any
                 getattr(entity, relation).clear()
 
-                if relationships:
-                    try:
-                        for node in relationships:
-                            getattr(entity, relation).add(node)
-                        graph.push(entity)
+                try:
+                    for node in relationships:
+                        getattr(entity, relation).add(node)
 
-                    except ConstraintError as e:
-                        return bad_request(e.message)
+                except ConstraintError as e:
+                    return bad_request(e.message)
+
+                graph.push(entity)
 
             except TypeError:
                 return bad_request('"data" member was not iterable')
 
         else:
-            import pdb; pdb.set_trace()
+            # replacing a to-one relationship here, so must be one object
+            related_entity = None
+
+            if body['data'] is not None:
+                try:
+                    node_id = int(body['data']['id'])
+                    node_type = body['data']['type']
+                except (TypeError, KeyError):
+                    return bad_request(
+                        '"data" member must be an object with "type" and "id"')
+
+                if node_type != related_cls.__name__.lower():
+                    return bad_request(
+                        'Requested node of type {} with id {}\
+                        not of type {}'.format(
+                            node_type,
+                            node_id,
+                            related_cls.__name__
+                        ))
+
+                related_entity = related_cls.select(graph, node_id).first()
+
+            # remove existing connection to an entity
+            getattr(entity, relation).clear()
+
+            if related_entity:
+                getattr(entity, relation).add(related_entity)
+            graph.push(entity)
 
         response = {}
         response['links'] = 'fix meeeee'

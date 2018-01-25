@@ -9,7 +9,7 @@ class User(BaseModel):
     # email = BaseModel.add_model_prop('User', 'email', fields.Email)
     # first_name = BaseModel.add_model_prop('User', 'first_name', fields.Str)
     # last_name = BaseModel.add_model_prop('User', 'last_name', fields.Str)
-    name = BaseModel.add_model_prop('User', 'name', fields.Str)
+    name = BaseModel.add_prop('User', 'name', fields.Str)
 
     groups = BaseModel.add_relationship(
                 'User',

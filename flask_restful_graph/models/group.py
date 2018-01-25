@@ -6,7 +6,7 @@ from .base_model import BaseModel
 
 class Group(BaseModel):
 
-    title = BaseModel.add_model_prop('Group', 'title', fields.Str)
+    title = BaseModel.add_prop('Group', 'title', fields.Str)
 
     members = BaseModel.add_relationship(
                 'Group',

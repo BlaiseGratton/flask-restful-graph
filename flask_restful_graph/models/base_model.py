@@ -19,8 +19,7 @@ class BaseModel(GraphObject):
     related_models = {}
 
     @classmethod
-    def add_model_prop(cls, model_name, prop_name,
-                       marshal_property, **kwargs):
+    def add_prop(cls, model_name, prop_name, marshal_property, **kwargs):
         try:
             model = registered_models[model_name]
         except KeyError:
@@ -125,25 +124,28 @@ class BaseModel(GraphObject):
                             'resource',
                             id=self.__primaryvalue__)
                     },
-                    'data': []
+                    'data': None
                 }
             except RuntimeError as e:
                 print 'Cannot access "links" property outside \
                         application context!'
                 print e
 
-                relationships[related_set] = {
-                    'links': {},
-                    'data': []
-                }
+            is_many = (BaseModel.related_models[self.__class__.__name__]
+                       [related_set]['is_plural'])
+            if is_many:
+                relationships[related_set]['data'] = []
 
             for node in getattr(self, related_set):
                 serialized_node = {}
                 serialized_node['type'], \
                     serialized_node['id'] = node.get_type_and_id()
 
-                relationships[related_set]['data']\
-                    .append(serialized_node.copy())
+                if is_many:
+                    relationships[related_set]['data']\
+                        .append(serialized_node.copy())
+                else:
+                    relationships[related_set]['data'] = serialized_node.copy()
 
                 serialized_node['attributes'] = node.get_attributes()
                 included.append(serialized_node)

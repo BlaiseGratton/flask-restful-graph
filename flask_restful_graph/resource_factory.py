@@ -179,6 +179,26 @@ def get_relationships(relationship, func):
     return get
 
 
+def get_relationship(relationship, func):
+    def get(self, id):
+        # RelatedObjects property type only supports iteration, so it seems
+        related_entity = [n for n in getattr(func(self, id), relationship)]
+
+        response = {
+            'data': None,
+            'links': get_top_level_links()
+        }
+
+        if related_entity:
+            data = {}
+            data['type'], data['id'] = related_entity[0].get_type_and_id()
+            response['data'] = data
+
+        return response
+
+    return get
+
+
 def get_related_resources(relationship, func):
     def get(self, id):
         related_nodes = getattr(func(self, id), relationship)
@@ -190,6 +210,21 @@ def get_related_resources(relationship, func):
         return {
             'links': links,
             'data': data
+        }
+
+    return get
+
+
+def get_related_resource(relationship, func):
+    def get(self, id):
+        # RelatedObjects property type only supports iteration, so it seems
+        related_entity = [n.serialize()
+                          for n in getattr(func(self, id), relationship)]
+        data = related_entity[0] if related_entity else None
+
+        return {
+            'data': data,
+            'links': get_top_level_links()
         }
 
     return get
@@ -570,21 +605,20 @@ def patch_relationship(relation, cls, graph, is_plural):
                 .format(cls.__name__, id)
             )
 
-        if is_plural:
-            relationships = []
+        related_cls = get_class_from_model_name(
+            BaseModel.related_models[cls.__name__][relation]['class_name']
+            .split('.')[-1])
 
+        if is_plural:
             # get any included relationships in the request and
             # check if they exist (else 404)
-            related_cls = get_class_from_model_name(
-                BaseModel.related_models[cls.__name__][relation]['class_name']
-                .split('.')[-1]
-            )
+            relationships = []
 
             try:
                 for type_and_id in body['data']:
                     node_id = int(type_and_id.get('id'))
 
-                    if type_and_id['type'] is not related_cls.__name__.lower():
+                    if type_and_id['type'] != related_cls.__name__.lower():
                         return bad_request(
                             'Requested node of type {} with id {}\
                             not of type {}'.format(
@@ -618,7 +652,7 @@ def patch_relationship(relation, cls, graph, is_plural):
                 return bad_request('"data" member was not iterable')
 
         else:
-            pass
+            import pdb; pdb.set_trace()
 
         response = {}
         response['links'] = 'fix meeeee'
@@ -789,7 +823,7 @@ class ResourceFactory(object):
                 else:
                     relationship_resource = create_resource_endpoint(
                         model_name + relation + 'Relationship', {
-                            'get': get_resource(get_node),
+                            'get': get_relationship(relation, get_node),
                             'patch': patch_relationship(
                                 relation,
                                 cls,
@@ -801,7 +835,7 @@ class ResourceFactory(object):
 
                     related_resource = create_resource_endpoint(
                         model_name + relation, {
-                            'get': get_resource(get_node)
+                            'get': get_related_resource(relation, get_node)
                         }
                     )
 

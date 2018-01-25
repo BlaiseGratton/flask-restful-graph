@@ -14,4 +14,10 @@ class Group(BaseModel):
                 related_name='members',
                 plural=True)
 
+    admin = BaseModel.add_relationship(
+                'Group',
+                RelatedFrom('flask_restful_graph.models.User', 'ADMIN_OF'),
+                related_name='admin',
+                plural=False)
+
     __pluralname__ = 'Groups'

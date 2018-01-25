@@ -6,12 +6,19 @@ from .base_model import BaseModel
 
 class User(BaseModel):
 
-    email = BaseModel.add_model_prop('User', 'email', fields.Email)
-    first_name = BaseModel.add_model_prop('User', 'first_name', fields.Str)
-    last_name = BaseModel.add_model_prop('User', 'last_name', fields.Str)
+    # email = BaseModel.add_model_prop('User', 'email', fields.Email)
+    # first_name = BaseModel.add_model_prop('User', 'first_name', fields.Str)
+    # last_name = BaseModel.add_model_prop('User', 'last_name', fields.Str)
+    name = BaseModel.add_model_prop('User', 'name', fields.Str)
 
     groups = BaseModel.add_relationship(
                 'User',
                 RelatedTo('flask_restful_graph.models.Group', 'MEMBER_OF'),
                 related_name='groups',
+                plural=True)
+
+    admin_of = BaseModel.add_relationship(
+                'User',
+                RelatedTo('flask_restful_graph.models.Group', 'ADMIN_OF'),
+                related_name='admin_of',
                 plural=True)

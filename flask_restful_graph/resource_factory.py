@@ -248,6 +248,9 @@ def post_to_resource(cls, graph):
         body = request.get_json()
         schema = BaseModel.schemas[cls.__name__]
 
+        if not body:
+            return bad_request('No JSON body submitted')
+
         try:
             if body['data']['type'] != cls.__name__.lower():
                 return bad_request('"type" member does not match resource')
@@ -359,7 +362,6 @@ def post_to_resource(cls, graph):
                     return bad_request(e.message)
 
                 response = {}
-                response['links'] = 'fix meeeee'
                 response['data'], response['included'] = new_node.serialize()
 
                 return response
@@ -425,11 +427,17 @@ def post_to_relationship(relation, cls, graph):
         except TypeError:
             return bad_request('"data" member was not iterable')
 
-        response = {}
-        response['links'] = 'fix meeeee'
-        response['data'], response['included'] = entity.serialize()
+        relationships = getattr(entity, relation)
 
-        return response
+        data = [make_resource_linkage(x.get_type_and_id())
+                for x in relationships]
+
+        links = get_top_level_links()
+
+        return {
+            'links': links,
+            'data': data
+        }
 
     return post
 
@@ -575,7 +583,6 @@ def patch_resource(cls, graph):
                         return bad_request(e.message)
 
                 response = {}
-                response['links'] = 'fix meeeee'
                 response['data'], response['included'] = entity.serialize()
 
                 return response
@@ -687,11 +694,17 @@ def patch_relationship(relation, cls, graph, is_plural):
                 getattr(entity, relation).add(related_entity)
             graph.push(entity)
 
-        response = {}
-        response['links'] = 'fix meeeee'
-        response['data'], response['included'] = entity.serialize()
+            relationships = getattr(entity, relation)
 
-        return response
+            data = [make_resource_linkage(x.get_type_and_id())
+                    for x in relationships]
+
+            links = get_top_level_links()
+
+            return {
+                'links': links,
+                'data': data
+            }
 
     return patch
 
@@ -746,10 +759,17 @@ def delete_relationships(relation, cls, graph):
             getattr(entity, relation).remove(node)
         graph.push(entity)
 
-        response = {}
-        response['links'] = 'fix meeeee'
-        response['data'], response['included'] = entity.serialize()
-        return response
+        relationships = getattr(entity, relation)
+
+        data = [make_resource_linkage(x.get_type_and_id())
+                for x in relationships]
+
+        links = get_top_level_links()
+
+        return {
+            'links': links,
+            'data': data
+        }
 
     return delete
 
